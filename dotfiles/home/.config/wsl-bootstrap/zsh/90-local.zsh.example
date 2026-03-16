@@ -1,0 +1,5 @@
+# Copy this file to 95-local.zsh for machine-specific tweaks that should not live
+# in the shared Windows-hosted repo.
+#
+# Example:
+# export KUBECONFIG="$HOME/.kube/config"
