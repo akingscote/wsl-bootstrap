@@ -185,12 +185,14 @@ if (-not $SkipWindowsTerminal) {
 
 if (-not $SkipVSCode) {
     $vsCodeCandidates = @(
-        "$env:APPDATA\Code\User\settings.json",
-        "$env:APPDATA\Code - Insiders\User\settings.json"
-    ) | Where-Object { Test-Path -LiteralPath $_ }
+        @(
+            "$env:APPDATA\Code\User\settings.json",
+            "$env:APPDATA\Code - Insiders\User\settings.json"
+        ) | Where-Object { Test-Path -LiteralPath $_ }
+    )
 
     if ($vsCodeCandidates.Count -eq 0) {
-        $vsCodeCandidates = @("$env:APPDATA\Code\User\settings.json")
+        Write-Host 'No VS Code settings found - skipping VS Code font configuration.'
     }
 
     foreach ($candidate in $vsCodeCandidates) {
