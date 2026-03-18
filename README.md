@@ -1,15 +1,17 @@
 # wsl-bootstrap
 
-A Windows-hosted source-of-truth repo for spinning up new WSL distros with the same workstation setup: `zsh`, Powerlevel10k, `nvm`/Node, Python + `uv`, Go, OpenTofu, Terragrunt, Azure CLI, GitHub CLI, and the shell aliases/integration used in the current `Ubuntu-24.04` environment.
+Dev environments are personal — when you're set up properly they feel like an extension of yourself and make you dramatically more productive. This repo contains my very personal preferences for WSL environments: tools, aliases, zsh, Powerlevel10k theme settings, and everything else that makes a shell feel like home. The intention is to fire up multiple WSL environments and run concurrent workloads without spending hours hand-configuring each one.
 
-## Why this exists
+The toolchain includes `zsh`, Powerlevel10k, `nvm`/Node, Python + `uv`, Go, OpenTofu, Terragrunt, Azure CLI, GitHub CLI, and the shell aliases/integration used across my Ubuntu 24.04 distros.
 
-Running multiple WSL distros in parallel is fastest when the setup is split into two layers:
+## How it works
+
+The setup is split into two layers:
 
 1. A text-based bootstrap repo you can version, edit, and rerun.
 2. An optional exported WSL base image you can clone quickly when you want speed.
 
-This repo implements that hybrid model.
+One command spins up a fully configured distro. Run it again with a different name and you have a second isolated environment ready to go.
 
 ## Layout
 
