@@ -294,6 +294,12 @@ install_gcm() {
   # Configure GCM to use gpg/pass as the credential store so it does not
   # require a desktop keyring (unavailable in WSL).
   run_target_shell 'git config --global credential.credentialStore gpg'
+  run_target_shell 'git config --global credential.helper "$(which git-credential-manager)"'
+
+  # Tell gh CLI to use GCM via the git credential helper rather than storing
+  # its own plain-text token in ~/.config/gh/hosts.yml.
+  run_target_shell 'gh config set git_protocol https'
+  run_target_shell 'gh auth setup-git'
 
   # Initialise pass if it has not been set up yet.  GCM needs an initialised
   # password store to save credentials.
