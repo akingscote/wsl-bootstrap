@@ -382,6 +382,44 @@ $tabColors = @(
     '#89DDFF', '#BB80B3', '#A3BE8C', '#EBCB8B', '#BF616A', '#D08770'
 )
 
+# Windows Terminal generates deterministic GUIDs for WSL profiles using UUIDv5.
+# We must use the same GUID so Terminal recognises our entry and does not create
+# a duplicate.  The namespace is TERMINAL_PROFILE_NAMESPACE_GUID from the
+# Windows Terminal source and the name is the UTF-16LE distro name.
+function New-GuidV5 {
+    param(
+        [Parameter(Mandatory)][guid]$Namespace,
+        [Parameter(Mandatory)][byte[]]$NameBytes
+    )
+
+    $nsBytes = $Namespace.ToByteArray()
+    [Array]::Reverse($nsBytes, 0, 4)
+    [Array]::Reverse($nsBytes, 4, 2)
+    [Array]::Reverse($nsBytes, 6, 2)
+
+    $sha1 = [System.Security.Cryptography.SHA1]::Create()
+    try {
+        $toHash = [byte[]]::new($nsBytes.Length + $NameBytes.Length)
+        [Array]::Copy($nsBytes, 0, $toHash, 0, $nsBytes.Length)
+        [Array]::Copy($NameBytes, 0, $toHash, $nsBytes.Length, $NameBytes.Length)
+        $hash = $sha1.ComputeHash($toHash)
+    }
+    finally { $sha1.Dispose() }
+
+    $result = [byte[]]::new(16)
+    [Array]::Copy($hash, $result, 16)
+    $result[6] = ($result[6] -band 0x0F) -bor 0x50
+    $result[8] = ($result[8] -band 0x3F) -bor 0x80
+
+    [Array]::Reverse($result, 0, 4)
+    [Array]::Reverse($result, 4, 2)
+    [Array]::Reverse($result, 6, 2)
+    return [guid]::new($result)
+}
+
+$terminalProfileNamespace = [guid]'2bde4a90-d05f-401c-9492-e40884ead1d8'
+$expectedGuid = '{' + (New-GuidV5 -Namespace $terminalProfileNamespace -NameBytes ([System.Text.Encoding]::Unicode.GetBytes($DistroName))).ToString() + '}'
+
 foreach ($settingsPath in $terminalSettingsPaths) {
     if ($PSCmdlet.ShouldProcess($settingsPath, "Configure profile for $DistroName")) {
         $raw = Get-Content -LiteralPath $settingsPath -Raw
@@ -420,36 +458,40 @@ foreach ($settingsPath in $terminalSettingsPaths) {
         if (-not $availableColors) { $availableColors = $tabColors }
         $chosenTabColor = $availableColors | Get-Random
 
-        # Deduplicate WSL profiles by name, and remove stale source properties
-        $seen = @{}
-        $deduped = @($list | Where-Object {
-            $cmd = if ($_ | Get-Member -Name 'commandline') { $_.commandline } else { '' }
-            $src = if ($_ | Get-Member -Name 'source') { $_.source } else { '' }
-            $isWsl = ($cmd -match 'wsl\.exe') -or ($src -eq 'Windows.Terminal.Wsl') -or ($src -eq 'Microsoft.WSL')
-            if ($isWsl) {
-                if ($seen.ContainsKey($_.name)) { return $false }
-                $seen[$_.name] = $true
-            }
-            return $true
-        })
+        # Find all profiles that belong to this distro (by name or GUID).
+        # Terminal and the WSL app each auto-generate a profile for every
+        # registered distro.  We keep the one whose GUID matches the
+        # deterministic value Terminal would compute and hide the rest so that
+        # their generators do not recreate them.
+        $distroProfiles = @($list | Where-Object { $_.name -eq $DistroName })
+        $primary = $distroProfiles | Where-Object {
+            ($_ | Get-Member -Name 'guid') -and $_.guid -eq $expectedGuid
+        } | Select-Object -First 1
 
-        # Strip source from WSL profiles we manage to avoid generator conflicts
-        $deduped | Where-Object { $_.name -eq $DistroName -and ($_ | Get-Member -Name 'source') } | ForEach-Object {
-            $_.PSObject.Properties.Remove('source')
+        # If no profile with the expected GUID exists yet, prefer the first
+        # match so we can update it in place.
+        if (-not $primary -and $distroProfiles) {
+            $primary = $distroProfiles | Select-Object -First 1
         }
 
-        # Find or create the profile for this distro — always set colors
-        $existing = $deduped | Where-Object { $_.name -eq $DistroName }
-        if ($existing) {
-            if ($existing | Get-Member -Name 'colorScheme') { $existing.colorScheme = $chosenScheme } else { $existing | Add-Member -NotePropertyName 'colorScheme' -NotePropertyValue $chosenScheme }
-            if ($existing | Get-Member -Name 'tabColor') { $existing.tabColor = $chosenTabColor } else { $existing | Add-Member -NotePropertyName 'tabColor' -NotePropertyValue $chosenTabColor }
-            if (-not ($existing | Get-Member -Name 'font')) { $existing | Add-Member -NotePropertyName 'font' -NotePropertyValue ([pscustomobject]@{ face = $FontFace }) }
+        if ($primary) {
+            # Ensure the GUID matches what Terminal expects
+            if ($primary | Get-Member -Name 'guid') { $primary.guid = $expectedGuid } else { $primary | Add-Member -NotePropertyName 'guid' -NotePropertyValue $expectedGuid }
+            if ($primary | Get-Member -Name 'colorScheme') { $primary.colorScheme = $chosenScheme } else { $primary | Add-Member -NotePropertyName 'colorScheme' -NotePropertyValue $chosenScheme }
+            if ($primary | Get-Member -Name 'tabColor') { $primary.tabColor = $chosenTabColor } else { $primary | Add-Member -NotePropertyName 'tabColor' -NotePropertyValue $chosenTabColor }
+            if (-not ($primary | Get-Member -Name 'font')) { $primary | Add-Member -NotePropertyName 'font' -NotePropertyValue ([pscustomobject]@{ face = $FontFace }) }
+            if (-not ($primary | Get-Member -Name 'commandline')) { $primary | Add-Member -NotePropertyName 'commandline' -NotePropertyValue "wsl.exe -d $DistroName" }
+            # Remove the source property so Terminal treats this as a
+            # user-defined profile and does not overwrite our customisations.
+            if ($primary | Get-Member -Name 'source') { $primary.PSObject.Properties.Remove('source') }
+            # Ensure the primary profile is visible (it may have been hidden
+            # by a previous run or by Terminal itself).
+            if ($primary | Get-Member -Name 'hidden') { $primary.hidden = $false }
             Write-Host "   Updated profile '$DistroName' with scheme '$chosenScheme' and tab color $chosenTabColor"
         }
         else {
-            $newGuid = '{' + [guid]::NewGuid().ToString() + '}'
-            $newProfile = [pscustomobject]@{
-                guid             = $newGuid
+            $primary = [pscustomobject]@{
+                guid             = $expectedGuid
                 name             = $DistroName
                 commandline      = "wsl.exe -d $DistroName"
                 icon             = 'ms-appx:///ProfileIcons/{9acb9455-ca41-5af7-950f-6bca1bc9722f}.png'
@@ -460,11 +502,19 @@ foreach ($settingsPath in $terminalSettingsPaths) {
                 tabTitle         = $DistroName
                 suppressApplicationTitle = $true
             }
-            $deduped = @($deduped) + @($newProfile)
+            $list = @($list) + @($primary)
             Write-Host "   Added profile '$DistroName' with scheme '$chosenScheme' and tab color $chosenTabColor"
         }
 
-        $profiles.list = $deduped
+        # Hide any other profiles for the same distro so only one entry
+        # appears in the Terminal dropdown.  Setting hidden keeps them in
+        # settings.json which prevents their generators from recreating them.
+        foreach ($dup in $distroProfiles) {
+            if ([object]::ReferenceEquals($dup, $primary)) { continue }
+            if ($dup | Get-Member -Name 'hidden') { $dup.hidden = $true } else { $dup | Add-Member -NotePropertyName 'hidden' -NotePropertyValue $true }
+        }
+
+        $profiles.list = $list
         $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
         Copy-Item -LiteralPath $settingsPath -Destination "$settingsPath.$stamp.bak" -Force
         ($json | ConvertTo-Json -Depth 20) + "`n" | Set-Content -LiteralPath $settingsPath -NoNewline
