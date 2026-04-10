@@ -284,18 +284,22 @@ install_azure_cli() {
   run_shell 'export DEBIAN_FRONTEND=noninteractive; if [[ "$(id -u)" -eq 0 ]]; then curl -sL https://aka.ms/InstallAzureCLIDeb | bash; else curl -sL https://aka.ms/InstallAzureCLIDeb | sudo DEBIAN_FRONTEND=noninteractive bash; fi'
 }
 
-install_gh_copilot() {
-  if ! run_target_shell 'gh auth status >/dev/null 2>&1'; then
-    warn 'gh is not authenticated yet; skipping gh-copilot extension. Run "gh auth login" then "gh extension install github/gh-copilot" manually.'
+install_gcm() {
+  if command_exists git-credential-manager; then
+    log "git-credential-manager already present."
     return 0
   fi
 
-  if run_target_shell 'gh extension list 2>/dev/null | grep -q gh-copilot'; then
-    log 'GitHub Copilot CLI already present.'
+  run_shell 'tmp_dir=$(mktemp -d) && curl -fsSLo "$tmp_dir/gcm.deb" "https://github.com/git-ecosystem/git-credential-manager/releases/download/v'"$GCM_VERSION"'/gcm-linux-x64-'"$GCM_VERSION"'.deb" && if [[ "$(id -u)" -eq 0 ]]; then DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; else sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; fi && rm -rf "$tmp_dir"'
+}
+
+install_mise() {
+  if [[ -x "$TARGET_HOME/.local/bin/mise" ]] || command_exists mise; then
+    log 'mise already present.'
     return 0
   fi
 
-  run_target_shell 'gh extension install github/gh-copilot'
+  run_target_shell 'curl -fsSL https://mise.jdx.dev/install.sh | MISE_INSTALL_PATH="$HOME/.local/bin/mise" sh'
 }
 
 install_google_chrome() {
@@ -411,7 +415,8 @@ main() {
     install_tofu
     install_terragrunt
     install_azure_cli
-    install_gh_copilot
+    install_gcm
+    install_mise
     install_google_chrome
   fi
 
