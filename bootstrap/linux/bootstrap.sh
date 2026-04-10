@@ -298,8 +298,10 @@ install_gcm() {
 
   # Tell gh CLI to use GCM via the git credential helper rather than storing
   # its own plain-text token in ~/.config/gh/hosts.yml.
-  run_target_shell 'gh config set git_protocol https'
-  run_target_shell 'gh auth setup-git'
+  # These may fail if gh is not yet authenticated, which is expected at
+  # bootstrap time — the user will run "gh auth login" later.
+  run_target_shell 'gh config set git_protocol https' || true
+  run_target_shell 'gh auth setup-git' || true
 
   # Initialise pass if it has not been set up yet.  GCM needs an initialised
   # password store to save credentials.
