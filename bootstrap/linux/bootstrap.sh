@@ -295,9 +295,14 @@ install_gcm() {
   run_target_shell 'git config --global credential.credentialStore secretservice'
   run_target_shell 'git config --global credential.helper "$(which git-credential-manager)"'
 
-  # Clear any pre-existing keyring files so gnome-keyring starts with a fresh,
-  # empty-password keyring.  Otherwise a stale locked keyring blocks secret storage.
+  # Clear any pre-existing keyring files so gnome-keyring starts with a fresh
+  # keyring on first login.  Otherwise a stale locked keyring blocks secret storage.
   run_target_shell 'rm -rf "$HOME/.local/share/keyrings"/*' || true
+
+  # Disable dbus auto-activation of gnome-keyring.  WSL has no login session,
+  # so the auto-started daemon would be locked.  Instead, the shell config
+  # starts and unlocks the daemon manually with the user's password.
+  run_shell 'for f in /usr/share/dbus-1/services/org.gnome.keyring.service /usr/share/dbus-1/services/org.freedesktop.secrets.service; do [ -f "$f" ] && ! [ -f "${f}.disabled" ] && mv "$f" "${f}.disabled"; done' || true
 
   # Tell gh CLI to use GCM via the git credential helper.
   # These may fail if gh is not yet authenticated, which is expected at
