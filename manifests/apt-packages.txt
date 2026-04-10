@@ -2,7 +2,10 @@
 build-essential
 ca-certificates
 curl
+dbus-x11
 fzf
+gnome-keyring
+libsecret-1-0
 gh
 git
 gnupg

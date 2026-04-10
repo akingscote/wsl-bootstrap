@@ -4,6 +4,8 @@ Dev environments are personal — when you're set up properly they feel like an 
 
 The toolchain includes `zsh`, Powerlevel10k, `nvm`/Node, Python + `uv`, Go, OpenTofu, Terragrunt, Azure CLI, GitHub CLI, Copilot CLI, `git-credential-manager`, `mise`, and the shell aliases/integration used across my Ubuntu 24.04 distros.
 
+Credential storage uses `gnome-keyring` as a Secret Service backend so that tools like `gh`, Copilot CLI, and GCM can store tokens securely without a desktop environment. D-Bus and `gnome-keyring-daemon` are started automatically on shell login (no systemd required). The `[boot]` section in `/etc/wsl.conf` creates the `XDG_RUNTIME_DIR` on WSL startup so the keyring has a valid runtime directory.
+
 ## How it works
 
 The setup is split into two layers:
@@ -102,7 +104,7 @@ These are intentionally **not** versioned here:
 - personal tokens
 - machine-local Docker socket overrides beyond the default provided shell env
 
-Instead, bootstrap lays down the config and then you run `gh auth login` and `az login` inside each new distro.
+Instead, bootstrap lays down the config and then you run `gh auth login` and `az login` inside each new distro. On your first terminal after WSL boot you will be prompted for a keyring password — this unlocks `gnome-keyring` so credentials are encrypted at rest. Subsequent terminals in the same session reuse the already-unlocked daemon without prompting.
 
 ## Known assumptions
 

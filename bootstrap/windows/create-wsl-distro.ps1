@@ -331,7 +331,7 @@ if ($PSCmdlet.ShouldProcess($DistroName, "Import distro into $distroRoot")) {
 }
 
 Write-Step "Creating Linux user '$LinuxUser' and setting as default..."
-$userSetupCommand = "id -u $LinuxUser >/dev/null 2>&1 || useradd -m -s /bin/bash $LinuxUser; getent group sudo >/dev/null 2>&1 && usermod -aG sudo $LinuxUser || true; printf '[user]\ndefault=$LinuxUser\n\n[interop]\nappendWindowsPath=false\n' > /etc/wsl.conf"
+$userSetupCommand = "id -u $LinuxUser >/dev/null 2>&1 || useradd -m -s /bin/bash $LinuxUser; getent group sudo >/dev/null 2>&1 && usermod -aG sudo $LinuxUser || true; printf '[user]\ndefault=$LinuxUser\n\n[interop]\nappendWindowsPath=false\n\n[boot]\ncommand=install -d -o $LinuxUser -g $LinuxUser -m 0700 /run/user/1000\n' > /etc/wsl.conf"
 if ($PSCmdlet.ShouldProcess($DistroName, "Ensure Linux user $LinuxUser exists and set it as default")) {
     Invoke-Wsl -Arguments @('-d', $DistroName, '--', 'bash', '-lc', $userSetupCommand) -FailureMessage 'Failed to configure the default Linux user.'
 }

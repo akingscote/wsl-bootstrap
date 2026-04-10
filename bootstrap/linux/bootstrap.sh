@@ -291,20 +291,21 @@ install_gcm() {
     log "git-credential-manager already present."
   fi
 
-  # Configure GCM to use gpg/pass as the credential store so it does not
-  # require a desktop keyring (unavailable in WSL).
-  run_target_shell 'git config --global credential.credentialStore gpg'
+  # Configure GCM to use the Secret Service backend provided by gnome-keyring.
+  run_target_shell 'git config --global credential.credentialStore secretservice'
   run_target_shell 'git config --global credential.helper "$(which git-credential-manager)"'
 
-  # Tell gh CLI to use GCM via the git credential helper rather than storing
-  # its own plain-text token in ~/.config/gh/hosts.yml.
+  # Clear any pre-existing keyring files so gnome-keyring starts with a fresh,
+  # empty-password keyring.  Otherwise a stale locked keyring blocks secret storage.
+  run_target_shell 'rm -rf "$HOME/.local/share/keyrings"/*' || true
+
+  # Tell gh CLI to use GCM via the git credential helper.
   # These may fail if gh is not yet authenticated, which is expected at
   # bootstrap time — the user will run "gh auth login" later.
   run_target_shell 'gh config set git_protocol https' || true
   run_target_shell 'gh auth setup-git' || true
 
-  # Initialise pass if it has not been set up yet.  GCM needs an initialised
-  # password store to save credentials.
+  # Initialise pass if it has not been set up yet (useful as a secondary store).
   if ! run_target_shell 'test -d "$HOME/.password-store"'; then
     log 'Initialising pass with a new GPG key...'
     run_target_shell 'gpg --batch --passphrase "" --quick-gen-key "WSL Bootstrap <'"$USER"'@wsl>" default default never'
@@ -313,19 +314,6 @@ install_gcm() {
     gpg_id=$(echo "$gpg_id" | tr -d '\r')
     run_target_shell 'pass init "'"$gpg_id"'"'
   fi
-
-  # After gh auth login the token sits in plain text in hosts.yml.
-  # Migrate it into pass so it can be loaded via GH_TOKEN on future shells.
-  run_target_shell '
-    hosts_file="$HOME/.config/gh/hosts.yml"
-    if [ -f "$hosts_file" ] && command -v pass >/dev/null 2>&1 && command -v gpg >/dev/null 2>&1; then
-      token=$(grep -m1 "oauth_token:" "$hosts_file" 2>/dev/null | cut -d: -f2 | tr -d " ")
-      if [ -n "$token" ]; then
-        echo "$token" | pass insert -e -f gh/github.com 2>/dev/null && \
-        log "Migrated gh token into pass store"
-      fi
-    fi
-  ' || true
 }
 
 install_copilot_cli() {
