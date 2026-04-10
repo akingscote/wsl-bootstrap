@@ -285,12 +285,25 @@ install_azure_cli() {
 }
 
 install_gcm() {
-  if command_exists git-credential-manager; then
+  if ! command_exists git-credential-manager; then
+    run_shell 'tmp_dir=$(mktemp -d) && curl -fsSLo "$tmp_dir/gcm.deb" "https://github.com/git-ecosystem/git-credential-manager/releases/download/v'"$GCM_VERSION"'/gcm-linux-x64-'"$GCM_VERSION"'.deb" && if [[ "$(id -u)" -eq 0 ]]; then DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; else sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; fi && rm -rf "$tmp_dir"'
+  else
     log "git-credential-manager already present."
-    return 0
   fi
 
-  run_shell 'tmp_dir=$(mktemp -d) && curl -fsSLo "$tmp_dir/gcm.deb" "https://github.com/git-ecosystem/git-credential-manager/releases/download/v'"$GCM_VERSION"'/gcm-linux-x64-'"$GCM_VERSION"'.deb" && if [[ "$(id -u)" -eq 0 ]]; then DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; else sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; fi && rm -rf "$tmp_dir"'
+  # Configure GCM to use gpg/pass as the credential store so it does not
+  # require a desktop keyring (unavailable in WSL).
+  run_target_shell 'git config --global credential.credentialStore gpg'
+
+  # Initialise pass if it has not been set up yet.  GCM needs an initialised
+  # password store to save credentials.
+  if ! run_target_shell 'test -d "$HOME/.password-store"'; then
+    log 'Initialising pass with a new GPG key...'
+    run_target_shell 'gpg --batch --passphrase "" --quick-gen-key "WSL Bootstrap <'"$USER"'@wsl>" default default never'
+    local gpg_id
+    gpg_id=$(run_target_shell 'gpg --list-keys --with-colons 2>/dev/null | awk -F: "/^pub/{found=1;next} found && /^fpr/{print \$10; exit}"')
+    run_target_shell 'pass init "'"$gpg_id"'"'
+  fi
 }
 
 install_copilot_cli() {
