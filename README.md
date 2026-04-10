@@ -2,7 +2,7 @@
 
 Dev environments are personal — when you're set up properly they feel like an extension of yourself and make you dramatically more productive. This repo contains my very personal preferences for WSL environments: tools, aliases, zsh, Powerlevel10k theme settings, and everything else that makes a shell feel like home. The intention is to fire up multiple WSL environments and run concurrent workloads without spending hours hand-configuring each one.
 
-The toolchain includes `zsh`, Powerlevel10k, `nvm`/Node, Python + `uv`, Go, OpenTofu, Terragrunt, Azure CLI, GitHub CLI, `git-credential-manager`, `mise`, and the shell aliases/integration used across my Ubuntu 24.04 distros.
+The toolchain includes `zsh`, Powerlevel10k, `nvm`/Node, Python + `uv`, Go, OpenTofu, Terragrunt, Azure CLI, GitHub CLI, Copilot CLI, `git-credential-manager`, `mise`, and the shell aliases/integration used across my Ubuntu 24.04 distros.
 
 ## How it works
 

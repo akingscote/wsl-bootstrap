@@ -293,6 +293,15 @@ install_gcm() {
   run_shell 'tmp_dir=$(mktemp -d) && curl -fsSLo "$tmp_dir/gcm.deb" "https://github.com/git-ecosystem/git-credential-manager/releases/download/v'"$GCM_VERSION"'/gcm-linux-x64-'"$GCM_VERSION"'.deb" && if [[ "$(id -u)" -eq 0 ]]; then DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; else sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; fi && rm -rf "$tmp_dir"'
 }
 
+install_copilot_cli() {
+  if run_target_shell 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; npm list -g @github/copilot >/dev/null 2>&1'; then
+    log 'Copilot CLI already present.'
+    return 0
+  fi
+
+  run_target_shell 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; npm install -g @github/copilot'
+}
+
 install_mise() {
   if [[ -x "$TARGET_HOME/.local/bin/mise" ]] || command_exists mise; then
     log 'mise already present.'
@@ -416,6 +425,7 @@ main() {
     install_terragrunt
     install_azure_cli
     install_gcm
+    install_copilot_cli
     install_mise
     install_google_chrome
   fi
