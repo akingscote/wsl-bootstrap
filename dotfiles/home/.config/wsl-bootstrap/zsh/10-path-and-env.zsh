@@ -23,7 +23,7 @@ fi
 # Selective Windows interop paths — appendWindowsPath is disabled in wsl.conf
 # to prevent Windows tools (e.g. az.cmd) from shadowing Linux binaries.
 if [[ -d /mnt/c/Windows/System32 ]]; then
-  export PATH="$PATH:/mnt/c/Windows/System32"
+  export PATH="$PATH:/mnt/c/Windows:/mnt/c/Windows/System32"
   for _vscode_bin in /mnt/c/Users/*/AppData/Local/Programs/Microsoft\ VS\ Code{\ Insiders,}/bin(N); do
     export PATH="$PATH:$_vscode_bin"
   done
