@@ -14,12 +14,6 @@ fi
 
 export AZURE_CONFIG_DIR="$HOME/.azure-${WSL_DISTRO_NAME}"
 
-if command -v google-chrome-stable >/dev/null 2>&1; then
-  export BROWSER=google-chrome-stable
-elif command -v google-chrome >/dev/null 2>&1; then
-  export BROWSER=google-chrome
-fi
-
 # Selective Windows interop paths — appendWindowsPath is disabled in wsl.conf
 # to prevent Windows tools (e.g. az.cmd) from shadowing Linux binaries.
 if [[ -d /mnt/c/Windows/System32 ]]; then
