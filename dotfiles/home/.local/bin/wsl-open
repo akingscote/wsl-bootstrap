@@ -1,0 +1,4 @@
+#!/bin/sh
+# Open a URL on the Windows host from inside WSL.
+# Used as BROWSER so tools like az login open in the host browser.
+exec /mnt/c/Windows/System32/cmd.exe /c start "" "$1" 2>/dev/null
