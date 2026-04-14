@@ -14,6 +14,9 @@ fi
 
 export AZURE_CONFIG_DIR="$HOME/.azure-${WSL_DISTRO_NAME}"
 
+# Open URLs on the Windows host via explorer.exe (works for az login, etc.)
+export BROWSER=explorer.exe
+
 # Selective Windows interop paths — appendWindowsPath is disabled in wsl.conf
 # to prevent Windows tools (e.g. az.cmd) from shadowing Linux binaries.
 if [[ -d /mnt/c/Windows/System32 ]]; then
