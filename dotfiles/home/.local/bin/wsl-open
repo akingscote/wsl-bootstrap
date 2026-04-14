@@ -1,4 +1,6 @@
 #!/bin/sh
 # Open a URL on the Windows host from inside WSL.
 # Used as BROWSER so tools like az login open in the host browser.
-exec /mnt/c/Windows/System32/cmd.exe /c start "" "$1" 2>/dev/null
+# PowerShell Start-Process handles URLs with & and special chars correctly,
+# unlike cmd.exe /c start which treats & as a command separator.
+exec /mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe -NoProfile -Command "Start-Process '$1'" 2>/dev/null
