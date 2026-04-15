@@ -22,7 +22,7 @@ Options:
   --home PATH           Target home directory. Defaults to $HOME.
   --owner USER          File owner for copied dotfiles and user-space installers.
   --skip-apt            Skip apt package installation.
-  --skip-external       Skip external installers (nvm, uv, Go, tofu, terragrunt, az).
+  --skip-external       Skip external installers (nvm, uv, Go, tofu, terragrunt, az, agency).
   --skip-dotfiles       Skip copying dotfiles into the target home.
   --only-dotfiles       Copy dotfiles only.
   --help                Show this help text.
@@ -330,6 +330,15 @@ install_copilot_cli() {
   run_target_shell 'export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"; npm install -g @github/copilot'
 }
 
+install_agency() {
+  if run_target_shell 'command -v agency >/dev/null 2>&1'; then
+    log 'agency already present.'
+    return 0
+  fi
+
+  run_target_shell 'curl -sSfL https://aka.ms/InstallTool.sh | sh -s agency'
+}
+
 install_mise() {
   if [[ -x "$TARGET_HOME/.local/bin/mise" ]] || command_exists mise; then
     log 'mise already present.'
@@ -454,6 +463,7 @@ main() {
     install_azure_cli
     install_gcm
     install_copilot_cli
+    install_agency
     install_mise
     install_google_chrome
   fi
