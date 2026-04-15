@@ -7,6 +7,11 @@ if [[ -f "$HOME/.config/wsl-bootstrap/zsh/00-keyring.zsh" ]]; then
   source "$HOME/.config/wsl-bootstrap/zsh/00-keyring.zsh"
 fi
 
+# Git identity prompt also needs interactive I/O before p10k.
+if [[ -f "$HOME/.config/wsl-bootstrap/zsh/15-git.zsh" ]]; then
+  source "$HOME/.config/wsl-bootstrap/zsh/15-git.zsh"
+fi
+
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
@@ -22,6 +27,7 @@ fi
 
 for config_file in "$HOME"/.config/wsl-bootstrap/zsh/*.zsh(.N); do
   [[ "${config_file:t}" == 00-keyring.zsh ]] && continue
+  [[ "${config_file:t}" == 15-git.zsh ]] && continue
   source "$config_file"
 done
 
