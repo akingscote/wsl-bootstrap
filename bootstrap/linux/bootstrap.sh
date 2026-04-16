@@ -22,7 +22,7 @@ Options:
   --home PATH           Target home directory. Defaults to $HOME.
   --owner USER          File owner for copied dotfiles and user-space installers.
   --skip-apt            Skip apt package installation.
-  --skip-external       Skip external installers (nvm, uv, Go, tofu, terragrunt, az, agency).
+  --skip-external       Skip external installers (nvm, uv, Go, tofu, terragrunt, az, agency, pwsh).
   --skip-dotfiles       Skip copying dotfiles into the target home.
   --only-dotfiles       Copy dotfiles only.
   --help                Show this help text.
@@ -339,6 +339,17 @@ install_agency() {
   run_target_shell 'curl -sSfL https://aka.ms/InstallTool.sh | sh -s agency'
 }
 
+install_pwsh() {
+  if run_target_shell 'command -v pwsh >/dev/null 2>&1'; then
+    log 'PowerShell (pwsh) already present.'
+    return 0
+  fi
+
+  local release
+  release=$(run_target_shell 'lsb_release -rs')
+  run_target_shell "wget -q 'https://packages.microsoft.com/config/ubuntu/${release}/packages-microsoft-prod.deb' -O /tmp/packages-microsoft-prod.deb && sudo dpkg -i /tmp/packages-microsoft-prod.deb && rm -f /tmp/packages-microsoft-prod.deb && sudo apt-get update -qq && sudo apt-get install -y -qq powershell"
+}
+
 install_mise() {
   if [[ -x "$TARGET_HOME/.local/bin/mise" ]] || command_exists mise; then
     log 'mise already present.'
@@ -464,6 +475,7 @@ main() {
     install_gcm
     install_copilot_cli
     install_agency
+    install_pwsh
     install_mise
     install_google_chrome
   fi
