@@ -123,6 +123,7 @@ install_file() {
 
   mkdir -p "$(dirname "$target")"
   cp "$source" "$target"
+  sed -i 's/\r$//' "$target"
   apply_ownership "$target"
 }
 
@@ -155,6 +156,7 @@ copy_tree() {
   mkdir -p "$(dirname "$target")"
   rm -rf "$target"
   cp -a "$source" "$target"
+  find "$target" -type f -exec sed -i 's/\r$//' {} +
   apply_ownership "$target"
 }
 
