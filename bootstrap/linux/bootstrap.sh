@@ -346,7 +346,7 @@ install_pwsh() {
   fi
 
   local release
-  release=$(run_target_shell 'lsb_release -rs')
+  release=$(run_target_shell '. /etc/os-release && echo "$VERSION_ID"')
   run_target_shell "wget -q 'https://packages.microsoft.com/config/ubuntu/${release}/packages-microsoft-prod.deb' -O /tmp/packages-microsoft-prod.deb && sudo dpkg -i /tmp/packages-microsoft-prod.deb && rm -f /tmp/packages-microsoft-prod.deb && sudo apt-get update -qq && sudo apt-get install -y -qq powershell"
 }
 
