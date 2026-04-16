@@ -195,7 +195,9 @@ install_apt_packages() {
 
   log "Installing ${#APT_PACKAGES[@]} apt packages (this may take a few minutes)..."
   printf -v joined '%q ' "${APT_PACKAGES[@]}"
-  run_shell 'export DEBIAN_FRONTEND=noninteractive; if [[ "$(id -u)" -eq 0 ]]; then apt-get update -qq; else sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq; fi'
+  log "Updating package lists..."
+  run_shell 'export DEBIAN_FRONTEND=noninteractive; if [[ "$(id -u)" -eq 0 ]]; then apt-get update; else sudo DEBIAN_FRONTEND=noninteractive apt-get update; fi'
+  log "Downloading and installing packages..."
   run_shell "export DEBIAN_FRONTEND=noninteractive; if [[ \"\$(id -u)\" -eq 0 ]]; then apt-get install -y $joined; else sudo DEBIAN_FRONTEND=noninteractive apt-get install -y $joined; fi"
 }
 

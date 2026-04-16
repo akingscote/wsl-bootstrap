@@ -353,11 +353,10 @@ if (-not $SkipBootstrap) {
     $bootstrapCommand = "cd / && '$bootstrapWslPath' --apply --repo-root '$repoWslPath' --home '/home/$LinuxUser' --owner '$LinuxUser'"
 
     if ($PSCmdlet.ShouldProcess($DistroName, 'Run Linux bootstrap')) {
-        # Stream output in real-time so the user can see progress.
-        & wsl.exe -d $DistroName --user root -- bash -lc $bootstrapCommand 2>&1 | ForEach-Object {
-            $line = "$_" -replace "`0", '' -replace "`r", ''
-            if ($line.Trim() -ne '') { Write-Host $line }
-        }
+        # Stream output in real-time. Use direct invocation (not Start-Process)
+        # because Start-Process -Wait blocks until all child processes exit,
+        # and bootstrap spawns daemons (e.g. gpg-agent) that persist.
+        & wsl.exe -d $DistroName --user root -- bash -c $bootstrapCommand
         if ($LASTEXITCODE -ne 0) {
             throw 'Linux bootstrap failed inside the new distro.'
         }
