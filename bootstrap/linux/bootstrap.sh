@@ -21,7 +21,6 @@ Options:
   --repo-root PATH      Explicit repo root. Defaults to the script parent.
   --home PATH           Target home directory. Defaults to $HOME.
   --owner USER          File owner for copied dotfiles and user-space installers.
-  --skip-apt            Skip apt package installation.
   --skip-external       Skip external installers (nvm, uv, Go, tofu, terragrunt, az, agency, pwsh).
   --skip-dotfiles       Skip copying dotfiles into the target home.
   --only-dotfiles       Copy dotfiles only.
@@ -194,9 +193,10 @@ install_apt_packages() {
     return 0
   fi
 
+  log "Installing ${#APT_PACKAGES[@]} apt packages (this may take a few minutes)..."
   printf -v joined '%q ' "${APT_PACKAGES[@]}"
   run_shell 'export DEBIAN_FRONTEND=noninteractive; if [[ "$(id -u)" -eq 0 ]]; then apt-get update -qq; else sudo DEBIAN_FRONTEND=noninteractive apt-get update -qq; fi'
-  run_shell "export DEBIAN_FRONTEND=noninteractive; if [[ \"\$(id -u)\" -eq 0 ]]; then apt-get install -y -qq $joined; else sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq $joined; fi"
+  run_shell "export DEBIAN_FRONTEND=noninteractive; if [[ \"\$(id -u)\" -eq 0 ]]; then apt-get install -y $joined; else sudo DEBIAN_FRONTEND=noninteractive apt-get install -y $joined; fi"
 }
 
 install_oh_my_zsh() {
@@ -347,7 +347,7 @@ install_pwsh() {
 
   local release
   release=$(run_shell '. /etc/os-release && echo "$VERSION_ID"')
-  run_shell "wget -q 'https://packages.microsoft.com/config/ubuntu/${release}/packages-microsoft-prod.deb' -O /tmp/packages-microsoft-prod.deb && dpkg -i /tmp/packages-microsoft-prod.deb && rm -f /tmp/packages-microsoft-prod.deb && apt-get update -qq && apt-get install -y -qq powershell"
+  run_shell "wget -q 'https://packages.microsoft.com/config/ubuntu/${release}/packages-microsoft-prod.deb' -O /tmp/packages-microsoft-prod.deb && dpkg -i /tmp/packages-microsoft-prod.deb && rm -f /tmp/packages-microsoft-prod.deb && apt-get update -qq && apt-get install -y powershell"
 }
 
 install_mise() {
@@ -365,7 +365,7 @@ install_google_chrome() {
     return 0
   fi
 
-  run_shell 'tmp_dir=$(mktemp -d) && curl -fsSLo "$tmp_dir/google-chrome.deb" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" && if [[ "$(id -u)" -eq 0 ]]; then DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$tmp_dir/google-chrome.deb" || (apt-get -f install -y -qq && dpkg -i "$tmp_dir/google-chrome.deb"); else sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$tmp_dir/google-chrome.deb" || (sudo apt-get -f install -y -qq && sudo dpkg -i "$tmp_dir/google-chrome.deb"); fi && rm -rf "$tmp_dir"'
+  run_shell 'tmp_dir=$(mktemp -d) && curl -fsSLo "$tmp_dir/google-chrome.deb" "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" && if [[ "$(id -u)" -eq 0 ]]; then DEBIAN_FRONTEND=noninteractive apt-get install -y "$tmp_dir/google-chrome.deb" || (apt-get -f install -y && dpkg -i "$tmp_dir/google-chrome.deb"); else sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$tmp_dir/google-chrome.deb" || (sudo apt-get -f install -y && sudo dpkg -i "$tmp_dir/google-chrome.deb"); fi && rm -rf "$tmp_dir"'
 }
 
 ensure_target_shell() {
@@ -408,9 +408,6 @@ main() {
       --owner)
         shift
         TARGET_OWNER=${1:-}
-        ;;
-      --skip-apt)
-        RUN_APT=0
         ;;
       --skip-external)
         RUN_EXTERNAL=0
@@ -462,21 +459,37 @@ main() {
   fi
 
   if [[ $RUN_EXTERNAL -eq 1 ]]; then
+    log 'Installing Oh My Zsh...'
     install_oh_my_zsh
+    log 'Installing Powerlevel10k...'
     install_powerlevel10k
+    log 'Installing zsh-syntax-highlighting...'
     install_zsh_syntax_highlighting
+    log 'Installing nvm...'
     install_nvm
+    log 'Installing Node.js...'
     install_node
+    log 'Installing uv...'
     install_uv
+    log 'Installing Go...'
     install_go
+    log 'Installing OpenTofu...'
     install_tofu
+    log 'Installing Terragrunt...'
     install_terragrunt
+    log 'Installing Azure CLI...'
     install_azure_cli
+    log 'Installing Git Credential Manager...'
     install_gcm
+    log 'Installing Copilot CLI...'
     install_copilot_cli
+    log 'Installing agency...'
     install_agency
+    log 'Installing PowerShell (pwsh)...'
     install_pwsh
+    log 'Installing mise...'
     install_mise
+    log 'Installing Google Chrome...'
     install_google_chrome
   fi
 
