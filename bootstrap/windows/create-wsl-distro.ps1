@@ -356,7 +356,7 @@ if (-not $SkipBootstrap) {
         # Stream output in real-time so the user can see progress.
         & wsl.exe -d $DistroName --user root -- bash -lc $bootstrapCommand 2>&1 | ForEach-Object {
             $line = "$_" -replace "`0", '' -replace "`r", ''
-            if ($line.Trim() -ne '') { Write-Host "   $line" }
+            if ($line.Trim() -ne '') { Write-Host $line }
         }
         if ($LASTEXITCODE -ne 0) {
             throw 'Linux bootstrap failed inside the new distro.'
