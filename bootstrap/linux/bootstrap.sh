@@ -183,6 +183,16 @@ install_dotfiles() {
   install_file "$source_home/.p10k.zsh" "$TARGET_HOME/.p10k.zsh"
   install_file "$source_home/.gitconfig" "$TARGET_HOME/.gitconfig"
   copy_tree "$source_home/.config/wsl-bootstrap" "$TARGET_HOME/.config/wsl-bootstrap"
+
+  # Install user scripts (e.g. wsl-open for BROWSER support)
+  if [[ -d "$source_home/.local/bin" ]]; then
+    for script in "$source_home/.local/bin"/*; do
+      [[ -f "$script" ]] || continue
+      install_file "$script" "$TARGET_HOME/.local/bin/$(basename "$script")"
+      chmod +x "$TARGET_HOME/.local/bin/$(basename "$script")"
+    done
+  fi
+
   seed_file_if_missing "$source_home/.gitconfig.local.example" "$TARGET_HOME/.gitconfig.local"
 }
 
