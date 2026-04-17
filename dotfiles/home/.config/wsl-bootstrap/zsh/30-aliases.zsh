@@ -9,3 +9,5 @@ alias ta='tofu apply -auto-approve'
 if command -v explorer.exe >/dev/null 2>&1; then
   alias exp='explorer.exe .'
 fi
+
+alias azwhoami='az account show --query "user.name" -o tsv'
