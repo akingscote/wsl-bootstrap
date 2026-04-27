@@ -57,7 +57,7 @@ if command -v gnome-keyring-daemon >/dev/null 2>&1; then
           echo -n "🔑 Keyring password: "
           read -rs _kr_pass
           echo
-          echo "$_kr_pass" | setsid gnome-keyring-daemon --unlock --foreground --components=secrets >/dev/null 2>&1 &
+          printf '%s' "$_kr_pass" | setsid gnome-keyring-daemon --unlock --foreground --components=secrets >/dev/null 2>&1 &
           disown
           unset _kr_pass
           _dbus_wait_for_name "org.freedesktop.secrets" 5

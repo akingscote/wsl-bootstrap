@@ -298,6 +298,27 @@ install_azure_cli() {
   run_shell 'export DEBIAN_FRONTEND=noninteractive; if [[ "$(id -u)" -eq 0 ]]; then curl -sL https://aka.ms/InstallAzureCLIDeb | bash; else curl -sL https://aka.ms/InstallAzureCLIDeb | sudo DEBIAN_FRONTEND=noninteractive bash; fi'
 }
 
+install_docker_cli() {
+  if command_exists docker; then
+    log 'Docker CLI already present.'
+    return 0
+  fi
+
+  run_shell 'install -m 0755 -d /etc/apt/keyrings && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && chmod a+r /etc/apt/keyrings/docker.asc'
+  run_shell '. /etc/os-release && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $VERSION_CODENAME stable" > /etc/apt/sources.list.d/docker.list'
+  run_shell 'export DEBIAN_FRONTEND=noninteractive; apt-get update -qq && apt-get install -y docker-ce-cli docker-buildx-plugin docker-compose-plugin'
+}
+
+install_cfssl() {
+  if command_exists cfssl && command_exists cfssljson; then
+    log 'cfssl already present.'
+    return 0
+  fi
+
+  run_shell 'curl -fsSLo /usr/local/bin/cfssl "https://github.com/cloudflare/cfssl/releases/download/v'"$CFSSL_VERSION"'/cfssl_'"$CFSSL_VERSION"'_linux_amd64" && chmod +x /usr/local/bin/cfssl'
+  run_shell 'curl -fsSLo /usr/local/bin/cfssljson "https://github.com/cloudflare/cfssl/releases/download/v'"$CFSSL_VERSION"'/cfssljson_'"$CFSSL_VERSION"'_linux_amd64" && chmod +x /usr/local/bin/cfssljson'
+}
+
 install_gcm() {
   if ! command_exists git-credential-manager; then
     run_shell 'tmp_dir=$(mktemp -d) && curl -fsSLo "$tmp_dir/gcm.deb" "https://github.com/git-ecosystem/git-credential-manager/releases/download/v'"$GCM_VERSION"'/gcm-linux-x64-'"$GCM_VERSION"'.deb" && if [[ "$(id -u)" -eq 0 ]]; then DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; else sudo DEBIAN_FRONTEND=noninteractive dpkg -i "$tmp_dir/gcm.deb"; fi && rm -rf "$tmp_dir"'
@@ -316,7 +337,7 @@ install_gcm() {
   # Disable dbus auto-activation of gnome-keyring.  WSL has no login session,
   # so the auto-started daemon would be locked.  Instead, the shell config
   # starts and unlocks the daemon manually with the user's password.
-  run_shell 'for f in /usr/share/dbus-1/services/org.gnome.keyring.service /usr/share/dbus-1/services/org.freedesktop.secrets.service; do [ -f "$f" ] && ! [ -f "${f}.disabled" ] && mv "$f" "${f}.disabled"; done' || true
+  run_shell 'for f in /usr/share/dbus-1/services/org.gnome.keyring.service /usr/share/dbus-1/services/org.freedesktop.secrets.service /usr/share/dbus-1/services/org.gnome.keyring.SystemPrompter.service /usr/share/dbus-1/services/org.gnome.keyring.PrivatePrompter.service; do [ -f "$f" ] && ! [ -f "${f}.disabled" ] && mv "$f" "${f}.disabled"; done' || true
 
   # Tell gh CLI to use GCM via the git credential helper.
   # These may fail if gh is not yet authenticated, which is expected at
@@ -493,6 +514,10 @@ main() {
     install_terragrunt
     log 'Installing Azure CLI...'
     install_azure_cli
+    log 'Installing Docker CLI...'
+    install_docker_cli
+    log 'Installing cfssl...'
+    install_cfssl
     log 'Installing Git Credential Manager...'
     install_gcm
     log 'Installing Copilot CLI...'

@@ -1,5 +1,5 @@
 export TERRAGRUNT_TFPATH=tofu
-export DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/docker.sock}"
+export DOCKER_HOST="${DOCKER_HOST:-unix:///var/run/docker.sock}"
 export GPG_TTY=$(tty)
 
 # XDG_RUNTIME_DIR and D-Bus/keyring setup live in 00-keyring.zsh which is
