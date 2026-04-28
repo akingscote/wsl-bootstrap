@@ -46,13 +46,15 @@ _dbus_wait_for_name_gone() {
 }
 
 # --- D-Bus session bus ---
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] || ! dbus-send --session --print-reply \
+# Always set the address first (fixed, well-known path) so the
+# liveness check talks to the right socket.
+export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+if ! dbus-send --session --print-reply \
       --dest=org.freedesktop.DBus /org/freedesktop/DBus \
       org.freedesktop.DBus.GetId >/dev/null 2>&1; then
-  # Remove stale socket if bus is dead
-  [ -S "$XDG_RUNTIME_DIR/bus" ] && rm -f "$XDG_RUNTIME_DIR/bus"
-  dbus-daemon --session --address="unix:path=$XDG_RUNTIME_DIR/bus" --fork 2>/dev/null
-  export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+  # Bus is dead — clean up stale socket and start fresh
+  rm -f "$XDG_RUNTIME_DIR/bus"
+  dbus-daemon --session --address="$DBUS_SESSION_BUS_ADDRESS" --fork 2>/dev/null
 fi
 
 # --- gnome-keyring (Secret Service) ---
