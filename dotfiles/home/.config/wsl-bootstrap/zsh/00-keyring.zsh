@@ -34,13 +34,24 @@ _dbus_wait_for_name() {
   return 1
 }
 
+# Helper: wait for a dbus name to disappear (up to $1 seconds).
+_dbus_wait_for_name_gone() {
+  local _name="$1" _timeout="${2:-5}" _i=0
+  while [ "$_i" -lt "$_timeout" ]; do
+    _dbus_name_has_owner "$_name" || return 0
+    sleep 1
+    _i=$((_i + 1))
+  done
+  return 1
+}
+
 # --- D-Bus session bus ---
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] || ! dbus-send --session --print-reply \
       --dest=org.freedesktop.DBus /org/freedesktop/DBus \
       org.freedesktop.DBus.GetId >/dev/null 2>&1; then
-  if [ ! -S "$XDG_RUNTIME_DIR/bus" ]; then
-    dbus-daemon --session --address="unix:path=$XDG_RUNTIME_DIR/bus" --fork 2>/dev/null
-  fi
+  # Remove stale socket if bus is dead
+  [ -S "$XDG_RUNTIME_DIR/bus" ] && rm -f "$XDG_RUNTIME_DIR/bus"
+  dbus-daemon --session --address="unix:path=$XDG_RUNTIME_DIR/bus" --fork 2>/dev/null
   export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 fi
 
@@ -50,20 +61,92 @@ if command -v gnome-keyring-daemon >/dev/null 2>&1; then
     # No keyring on the bus yet — try to become the one that starts it.
     _lock_dir="$XDG_RUNTIME_DIR/.keyring-init-lock"
     if mkdir "$_lock_dir" 2>/dev/null; then
+      # Clean up lock on interrupt/exit
+      trap 'rmdir "$_lock_dir" 2>/dev/null' INT TERM EXIT
+
       # Won the lock — re-check after acquiring (another shell may have
       # started the daemon between our first check and getting the lock).
       if ! _dbus_name_has_owner "org.freedesktop.secrets"; then
         if [ -t 0 ]; then
-          echo -n "🔑 Keyring password: "
-          read -rs _kr_pass
-          echo
-          printf '%s' "$_kr_pass" | setsid gnome-keyring-daemon --unlock --foreground --components=secrets >/dev/null 2>&1 &
-          disown
-          unset _kr_pass
-          _dbus_wait_for_name "org.freedesktop.secrets" 5
+          _keyring_dir="$HOME/.local/share/keyrings"
+          _kr_stderr="$XDG_RUNTIME_DIR/.keyring-unlock-stderr"
+          _kr_passfile="$XDG_RUNTIME_DIR/.keyring-pass"
+          _kr_unlocked=false
+
+          if [ -f "$_keyring_dir/login.keyring" ]; then
+            # --- Existing keyring: validate password ---
+            _kr_attempts=0
+            while [ "$_kr_attempts" -lt 3 ]; do
+              echo -n "🔑 Keyring password: "
+              read -rs _kr_pass || { echo; break; }
+              echo
+
+              cp "$_keyring_dir/login.keyring" "$_keyring_dir/login.keyring.bak"
+
+              # Write password to file (no trailing newline) and redirect stdin
+              # to get a reliable $! PID (pipelines give subshell PIDs in zsh).
+              printf '%s' "$_kr_pass" > "$_kr_passfile"
+              gnome-keyring-daemon --unlock --foreground --components=secrets \
+                < "$_kr_passfile" >/dev/null 2>"$_kr_stderr" &
+              _kr_pid=$!
+
+              if _dbus_wait_for_name "org.freedesktop.secrets" 5 && \
+                 ! grep -q "failed to unlock" "$_kr_stderr" 2>/dev/null; then
+                echo "✅ Keyring unlocked."
+                _kr_unlocked=true
+                disown "$_kr_pid" 2>/dev/null
+                break
+              else
+                echo "❌ Incorrect keyring password."
+                kill -9 "$_kr_pid" 2>/dev/null
+                sleep 1
+                # Restore original keyring (daemon re-keys on wrong password)
+                mv -f "$_keyring_dir/login.keyring.bak" "$_keyring_dir/login.keyring"
+                _dbus_wait_for_name_gone "org.freedesktop.secrets" 3
+                _kr_attempts=$((_kr_attempts + 1))
+              fi
+            done
+
+            if [ "$_kr_unlocked" = false ]; then
+              echo "⚠️  Max attempts reached. Keyring not unlocked."
+            fi
+            rm -f "$_keyring_dir/login.keyring.bak"
+            unset _kr_attempts _kr_pid
+          else
+            # --- First time: set password with confirmation ---
+            while true; do
+              echo -n "🔑 Set keyring password: "
+              read -rs _kr_pass || { echo; break; }
+              echo
+              echo -n "🔑 Confirm password: "
+              read -rs _kr_pass2 || { echo; break; }
+              echo
+              if [ "$_kr_pass" = "$_kr_pass2" ]; then
+                break
+              fi
+              echo "❌ Passwords do not match. Try again."
+            done
+            unset _kr_pass2
+
+            printf '%s' "$_kr_pass" > "$_kr_passfile"
+            gnome-keyring-daemon --unlock --foreground --components=secrets \
+              < "$_kr_passfile" >/dev/null 2>&1 &
+            _kr_pid=$!
+            if _dbus_wait_for_name "org.freedesktop.secrets" 5; then
+              echo "✅ Keyring created and unlocked."
+              disown "$_kr_pid" 2>/dev/null
+            else
+              echo "⚠️  Keyring daemon failed to start."
+            fi
+            unset _kr_pid
+          fi
+
+          unset _kr_pass _kr_stderr _keyring_dir _kr_unlocked
+          rm -f "$XDG_RUNTIME_DIR/.keyring-unlock-stderr" "$XDG_RUNTIME_DIR/.keyring-pass"
         fi
       fi
       rmdir "$_lock_dir" 2>/dev/null
+      trap - INT TERM EXIT
     else
       # Lost the lock — another terminal is starting the daemon. Wait.
       _dbus_wait_for_name "org.freedesktop.secrets" 10
