@@ -85,22 +85,23 @@ if command -v gnome-keyring-daemon >/dev/null 2>&1; then
 
               cp "$_keyring_dir/login.keyring" "$_keyring_dir/login.keyring.bak"
 
-              # Write password to file (no trailing newline) and redirect stdin
-              # to get a reliable $! PID (pipelines give subshell PIDs in zsh).
+              # Write password to temp file to avoid pipeline PID issues.
+              # Use setsid so the daemon survives terminal close.
               printf '%s' "$_kr_pass" > "$_kr_passfile"
-              gnome-keyring-daemon --unlock --foreground --components=secrets \
+              setsid gnome-keyring-daemon --unlock --foreground --components=secrets \
                 < "$_kr_passfile" >/dev/null 2>"$_kr_stderr" &
-              _kr_pid=$!
+              disown
 
               if _dbus_wait_for_name "org.freedesktop.secrets" 5 && \
                  ! grep -q "failed to unlock" "$_kr_stderr" 2>/dev/null; then
                 echo "✅ Keyring unlocked."
                 _kr_unlocked=true
-                disown "$_kr_pid" 2>/dev/null
                 break
               else
                 echo "❌ Incorrect keyring password."
-                kill -9 "$_kr_pid" 2>/dev/null
+                # Find and kill the daemon by process name (setsid means $! is wrapper)
+                _kr_pid=$(pgrep -n gnome-keyring)
+                [ -n "$_kr_pid" ] && kill -9 "$_kr_pid" 2>/dev/null
                 sleep 1
                 # Restore original keyring (daemon re-keys on wrong password)
                 mv -f "$_keyring_dir/login.keyring.bak" "$_keyring_dir/login.keyring"
@@ -131,16 +132,14 @@ if command -v gnome-keyring-daemon >/dev/null 2>&1; then
             unset _kr_pass2
 
             printf '%s' "$_kr_pass" > "$_kr_passfile"
-            gnome-keyring-daemon --unlock --foreground --components=secrets \
+            setsid gnome-keyring-daemon --unlock --foreground --components=secrets \
               < "$_kr_passfile" >/dev/null 2>&1 &
-            _kr_pid=$!
+            disown
             if _dbus_wait_for_name "org.freedesktop.secrets" 5; then
               echo "✅ Keyring created and unlocked."
-              disown "$_kr_pid" 2>/dev/null
             else
               echo "⚠️  Keyring daemon failed to start."
             fi
-            unset _kr_pid
           fi
 
           unset _kr_pass _kr_stderr _keyring_dir _kr_unlocked
